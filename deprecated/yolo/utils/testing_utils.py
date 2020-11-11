@@ -140,22 +140,3 @@ def get_coco_names(path="yolo/dataloaders/dataset_specs/coco.names"):
     for i in range(len(data)):
         data[i] = data[i].strip()
     return data
-
-
-def rt_test():
-    cap = cv2.VideoCapture(0)
-    cap.set(5, 30)
-    start = time.time()
-    l = 0
-    tick = 0
-    while (cap.isOpened()):
-        rt, frame = cap.read()
-        cv2.imshow("frame2", frame)
-        l += 1
-        if time.time() - start - tick >= 1:
-            tick += 1
-            print(f"current fps: {l}", end="\r")
-            l = 0
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-    return
