@@ -110,10 +110,12 @@ def resize_crop_filter(image, boxes, default_width, default_height, target_width
         image = tf.image.resize(image, (target_width, target_height))
         image = tf.image.resize_with_crop_or_pad(image, target_height=default_height, target_width=default_width)
 
-        image_scale = tf.cast([[target_height / default_height, target_width / default_width]], boxes.dtype)
-        output_size  = tf.cast([[target_height, target_width]], tf.int32)
-        offset = tf.cast([[0, 0]], tf.int32)
+        image_scale = tf.cast([target_height / default_height, target_width / default_width], boxes.dtype)
+        output_size  = tf.cast([target_height, target_width], boxes.dtype)
+        offset = tf.cast([0, 0], boxes.dtype)
+        print( boxes.shape)
         boxes = preprocess_ops.resize_and_crop_boxes(boxes, image_scale, output_size, offset)
+        print(image.shape, boxes.shape)
     return image, boxes
 
 # def resize_crop_filter(image, boxes, default_width, default_height, target_width, target_height):

@@ -20,8 +20,8 @@ class Parser(parser.Parser):
         image_h=416,
         num_classes=80,
         fixed_size=False,
-        jitter_im=0.3,
-        jitter_boxes=0.0025,
+        jitter_im=0,
+        jitter_boxes=0,
         net_down_scale=32,
         max_process_size=608,
         min_process_size=320,
@@ -29,7 +29,7 @@ class Parser(parser.Parser):
         random_flip=True,
         pct_rand=0.5,
         masks=None,
-        anchors=None,
+        anchors=[[12.0, 19.0], [31.0, 46.0], [96.0, 54.0], [46.0, 114.0], [133.0, 127.0], [79.0, 225.0], [302.0, 150.0], [172.0, 286.0], [348.0, 340.0]],
         seed=10,
     ):
         """Initializes parameters for parsing annotations in the dataset.
@@ -109,7 +109,9 @@ class Parser(parser.Parser):
                                         self._jitter_boxes)
 
         if self._random_flip:
-            image, boxes = preprocess_ops.random_horizontal_flip(image, boxes, seed=self._seed)
+            boxes = box_utils.xcycwh_to_yxyx(boxes)
+            image, boxes, _ = preprocess_ops.random_horizontal_flip(image, boxes, seed=self._seed)
+            boxes = box_utils.yxyx_to_xcycwh(boxes)
 
         if self._jitter_im != 0.0:
             image, boxes = preprocessing_ops.random_translate(image,
