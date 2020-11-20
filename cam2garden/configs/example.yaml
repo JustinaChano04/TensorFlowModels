@@ -1,0 +1,16 @@
+registry:
+  packages:
+  - cam2garden.projects.yolo
+runtime:
+  distribution_strategy: 'mirrored'
+  mixed_precision_dtype: 'float16'
+  loss_scale: 'dynamic'
+type: Model
+object: !Yolo
+  num_classes: 1001
+  input_size: [224, 224, 3]
+  backbone: !darknet
+  version: v4
+# Types
+# !!registry
+# !!model

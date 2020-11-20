@@ -8,6 +8,7 @@ import tensorflow as tf
 
 from yolo.dataloaders import preprocessing_ops
 from yolo.utils import box_utils
+from official.vision.beta.ops import box_ops, preprocess_ops
 
 from official.vision.beta.dataloaders import parser
 
@@ -20,7 +21,7 @@ class Parser(parser.Parser):
         num_classes=80,
         fixed_size=False,
         jitter_im=0.3,
-        jitter_boxes=0.005,
+        jitter_boxes=0.0025,
         net_down_scale=32,
         max_process_size=608,
         min_process_size=320,
@@ -99,17 +100,16 @@ class Parser(parser.Parser):
                                             maxval=21,
                                             seed=self._seed,
                                             dtype=tf.int32)
-        
+
         # image, boxes = preprocessing_ops.resize_crop_filter(image, box_utils.xcycwh_to_yxyx(boxes), default_width=self._image_w, default_height=self._image_h, target_width=randscale * self._net_down_scale, target_height=randscale * self._net_down_scale)
         # boxes = box_utils.yxyx_to_xcycwh(boxes)
 
         if self._jitter_boxes != 0.0:
-            boxes = preprocessing_ops.random_jitter_boxes(boxes,
-                                        self._jitter_boxes,
-                                        seed=self._seed)
+            boxes = box_ops.jitter_boxes(boxes,
+                                        self._jitter_boxes)
 
         if self._random_flip:
-            image, boxes = preprocessing_ops.random_flip(image, boxes, seed=self._seed)
+            image, boxes = preprocess_ops.random_horizontal_flip(image, boxes, seed=self._seed)
 
         if self._jitter_im != 0.0:
             image, boxes = preprocessing_ops.random_translate(image,
@@ -122,13 +122,13 @@ class Parser(parser.Parser):
 
         best_anchors = preprocessing_ops.get_best_anchor(boxes, self._anchors, width = self._image_w, height = self._image_h)
         tf.print(best_anchors)
-        boxes = preprocessing_ops.pad_max_instances(boxes, self._max_num_instances, 0)
-        classes = preprocessing_ops.pad_max_instances(data["groundtruth_classes"],
+        boxes = preprocess_ops.clip_or_pad_to_fixed_size(boxes, self._max_num_instances, 0)
+        classes = preprocess_ops.clip_or_pad_to_fixed_size(data["groundtruth_classes"],
                                     self._max_num_instances, -1)
-        best_anchors = preprocessing_ops.pad_max_instances(best_anchors, self._max_num_instances, 0)
-        area = preprocessing_ops.pad_max_instances(data["groundtruth_area"],
+        best_anchors = preprocess_ops.clip_or_pad_to_fixed_size(best_anchors, self._max_num_instances, 0)
+        area = preprocess_ops.clip_or_pad_to_fixed_size(data["groundtruth_area"],
                                  self._max_num_instances, 0)
-        is_crowd = preprocessing_ops.pad_max_instances(
+        is_crowd = preprocess_ops.clip_or_pad_to_fixed_size(
             tf.cast(data["groundtruth_is_crowd"], tf.int32),
             self._max_num_instances, 0)
         labels = {

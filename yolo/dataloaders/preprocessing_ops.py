@@ -5,6 +5,8 @@ import tensorflow.keras.backend as K
 from yolo.utils.iou_utils import *
 from yolo.utils import box_utils
 
+from official.vision.beta.ops import preprocess_ops
+
 
 # @tf.function
 # def angles_to_projective_transforms(angle, image_w, image_h):
@@ -76,6 +78,7 @@ def scale_image(image, resize=False, w=None, h=None):
     return image
 
 
+# REDUNDANT
 def random_jitter_boxes(boxes, box_jitter, seed=10):
     num_gen = tf.shape(boxes)[0]
     jx = tf.random.uniform(minval=-box_jitter,
@@ -106,39 +109,36 @@ def resize_crop_filter(image, boxes, default_width, default_height, target_width
     with tf.name_scope("resize_crop_filter"):
         image = tf.image.resize(image, (target_width, target_height))
         image = tf.image.resize_with_crop_or_pad(image, target_height=default_height, target_width=default_width)
-        
-        default_width = tf.cast(default_width, boxes.dtype)
-        default_height = tf.cast(default_height, boxes.dtype)
-        target_width = tf.cast(target_width, boxes.dtype)
-        target_height = tf.cast(target_height, boxes.dtype)
-        
-        shift_width =  default_width - (target_width + default_width)/2
-        shift_height =  default_height - (target_height + default_height)/2
-        aspect_change_width = target_width/default_width
-        aspect_change_height = target_height/default_height
-        
-        boxes = box_utils.yxyx_to_xcycwh(boxes)
-        x, y, width, height = tf.split(boxes, 4, axis = -1)
-        x = ((x * target_width) + shift_width)/default_width 
-        y = ((y * target_height) + shift_height)/default_width
-        width = width * aspect_change_width
-        height = height * aspect_change_height
-        boxes = box_utils.xcycwh_to_yxyx(tf.concat([x, y, width, height], axis = -1))
+
+        image_scale = tf.cast([[target_height / default_height, target_width / default_width]], boxes.dtype)
+        output_size  = tf.cast([[target_height, target_width]], tf.int32)
+        offset = tf.cast([[0, 0]], tf.int32)
+        boxes = preprocess_ops.resize_and_crop_boxes(boxes, image_scale, output_size, offset)
     return image, boxes
 
-def jitter_boxes(box, j_cx, j_cy, j_w, j_h):
-    with tf.name_scope("jitter_boxs"):
-        x = tf.clip_by_value(tf.math.add(box[..., 0], j_cx),
-                             clip_value_min=0.0,
-                             clip_value_max=1.0)
-        y = tf.clip_by_value(tf.math.add(box[..., 1], j_cy),
-                             clip_value_min=0.0,
-                             clip_value_max=1.0)
-        w = box[..., 2] * j_w
-        h = box[..., 3] * j_h
-        box = tf.stack([x, y, w, h], axis=-1)
-        box.set_shape([None, 4])
-    return box
+# def resize_crop_filter(image, boxes, default_width, default_height, target_width, target_height):
+#     with tf.name_scope("resize_crop_filter"):
+#         image = tf.image.resize(image, (target_width, target_height))
+#         image = tf.image.resize_with_crop_or_pad(image, target_height=default_height, target_width=default_width)
+#
+#         default_width = tf.cast(default_width, boxes.dtype)
+#         default_height = tf.cast(default_height, boxes.dtype)
+#         target_width = tf.cast(target_width, boxes.dtype)
+#         target_height = tf.cast(target_height, boxes.dtype)
+#
+#         shift_width =  default_width - (target_width + default_width)/2
+#         shift_height =  default_height - (target_height + default_height)/2
+#         aspect_change_width = target_width/default_width
+#         aspect_change_height = target_height/default_height
+#
+#         boxes = box_utils.yxyx_to_xcycwh(boxes)
+#         x, y, width, height = tf.split(boxes, 4, axis = -1)
+#         x = ((x * target_width) + shift_width)/default_width
+#         y = ((y * target_height) + shift_height)/default_width
+#         width = width * aspect_change_width
+#         height = height * aspect_change_height
+#         boxes = box_utils.xcycwh_to_yxyx(tf.concat([x, y, width, height], axis = -1))
+#     return image, boxes
 
 
 def random_translate(image, box, t, seed=10):
@@ -166,20 +166,6 @@ def translate_image(image, translate_x, translate_y):
             image = tfa.image.translate(
                 image, image_jitter * tf.cast(tf.shape(image)[1], tf.float32))
     return image
-
-
-def random_flip(image, box, seed=10):
-    do_flip_x = tf.greater(tf.random.uniform([], seed=seed), 0.5)
-    x = box[..., 0]
-    y = box[..., 1]
-    if do_flip_x:
-        image = tf.image.flip_left_right(image)
-        x = 1 - x
-    do_flip_y = tf.greater(tf.random.uniform([], seed=seed), 0.9)
-    if do_flip_y:
-        image = tf.image.flip_up_down(image)
-        y = 1 - y
-    return image, tf.stack([x, y, box[..., 2], box[..., 3]], axis=-1)
 
 
 def pad_max_instances(value, instances, pad_value=0):
