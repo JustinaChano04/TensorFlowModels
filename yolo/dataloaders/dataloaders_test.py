@@ -14,8 +14,9 @@ decoder = MSCOCODecoder()
 parser = Parser()
 
 dataset = dataset.map(decoder.decode)
-#imgs = dataset.map(parser._parse_train_data)
-imgs = dataset.map(parser._parse_eval_data)
+imgs = dataset.map(parser._parse_train_data)
+#imgs = dataset.map(parser._parse_eval_data)
+
 
 for img, label in imgs.take(10):
     fig,ax = plt.subplots(1)

@@ -90,8 +90,8 @@ class Parser(parser.Parser):
         image = tf.clip_by_value(image, 0.0, 1.0)
         boxes = data['groundtruth_boxes']
         image_shape = tf.shape(image)[:2]
-
-
+        
+        self._random_flip = False
         if self._random_flip:
             image, boxes, _ = preprocess_ops.random_horizontal_flip(image, boxes, seed=self._seed)
 
@@ -107,7 +107,6 @@ class Parser(parser.Parser):
                                             dtype=tf.int32)
 
         boxes = box_ops.denormalize_boxes(boxes, image_shape)
-
 
         if self._jitter_boxes != 0.0:
             boxes = box_ops.jitter_boxes(boxes,
