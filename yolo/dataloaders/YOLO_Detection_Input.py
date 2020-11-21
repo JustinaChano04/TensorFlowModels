@@ -20,8 +20,8 @@ class Parser(parser.Parser):
         image_h=416,
         num_classes=80,
         fixed_size=False,
-        jitter_im=0,
-        jitter_boxes=0,
+        jitter_im=0.1,
+        jitter_boxes=0.005,
         net_down_scale=32,
         max_process_size=608,
         min_process_size=320,
@@ -69,7 +69,6 @@ class Parser(parser.Parser):
         self._max_num_instances = max_num_instances
         self._random_flip = random_flip
         self._seed = seed
-        return
 
     def _parse_train_data(self, data):
         """Generates images and labels that are usable for model training.
@@ -83,15 +82,21 @@ class Parser(parser.Parser):
         shape = tf.shape(data["image"])
         image = data["image"] / 255
         image = tf.image.resize(image, (self._max_process_size, self._max_process_size))
-        boxes = box_utils.yxyx_to_xcycwh(data["groundtruth_boxes"])
         image = tf.image.random_brightness(image=image,
                                            max_delta=.1)  # Brightness
         image = tf.image.random_saturation(image=image, lower=0.75,
                                            upper=1.25)  # Saturation
         image = tf.image.random_hue(image=image, max_delta=.1)  # Hue
         image = tf.clip_by_value(image, 0.0, 1.0)
+        boxes = data['groundtruth_boxes']
+        image_shape = tf.shape(image)[:2]
+
+
+        if self._random_flip:
+            image, boxes, _ = preprocess_ops.random_horizontal_flip(image, boxes, seed=self._seed)
 
         randscale = self._image_w // self._net_down_scale
+
         if not self._fixed_size:
             do_scale = tf.greater(tf.random.uniform([], minval=0, maxval=1, seed=self._seed), 1 - self._pct_rand)
             if do_scale:
@@ -101,29 +106,33 @@ class Parser(parser.Parser):
                                             seed=self._seed,
                                             dtype=tf.int32)
 
-        # image, boxes = preprocessing_ops.resize_crop_filter(image, box_utils.xcycwh_to_yxyx(boxes), default_width=self._image_w, default_height=self._image_h, target_width=randscale * self._net_down_scale, target_height=randscale * self._net_down_scale)
-        # boxes = box_utils.yxyx_to_xcycwh(boxes)
+        boxes = box_ops.denormalize_boxes(boxes, image_shape)
+
 
         if self._jitter_boxes != 0.0:
             boxes = box_ops.jitter_boxes(boxes,
-                                        self._jitter_boxes)
+                                         0.025)
 
-        if self._random_flip:
-            boxes = box_utils.xcycwh_to_yxyx(boxes)
-            image, boxes, _ = preprocess_ops.random_horizontal_flip(image, boxes, seed=self._seed)
-            boxes = box_utils.yxyx_to_xcycwh(boxes)
+        boxes = box_ops.normalize_boxes(boxes, image_shape)
+        
+        boxes = box_utils.yxyx_to_xcycwh(boxes)
 
-        if self._jitter_im != 0.0:
+        if self._jitter_im != 0.0:  
             image, boxes = preprocessing_ops.random_translate(image,
                                             boxes,
                                             self._jitter_im,
                                             seed=self._seed)
 
-        image, boxes = preprocessing_ops.resize_crop_filter(image, box_utils.xcycwh_to_yxyx(boxes), default_width=self._image_w, default_height=self._image_h, target_width=randscale * self._net_down_scale, target_height=randscale * self._net_down_scale)
-        boxes = box_utils.yxyx_to_xcycwh(boxes)
+        image, boxes = preprocessing_ops.resize_crop_filter(image, 
+                                                            boxes,
+                                                            default_width=self._image_w,
+                                                            default_height=self._image_h,
+                                                            target_width=randscale * self._net_down_scale,
+                                                            target_height=randscale * self._net_down_scale)
 
         best_anchors = preprocessing_ops.get_best_anchor(boxes, self._anchors, width = self._image_w, height = self._image_h)
-        tf.print(best_anchors)
+
+        #padding
         boxes = preprocess_ops.clip_or_pad_to_fixed_size(boxes, self._max_num_instances, 0)
         classes = preprocess_ops.clip_or_pad_to_fixed_size(data["groundtruth_classes"],
                                     self._max_num_instances, -1)

@@ -8,61 +8,6 @@ from yolo.utils import box_utils
 from official.vision.beta.ops import preprocess_ops
 
 
-# @tf.function
-# def angles_to_projective_transforms(angle, image_w, image_h):
-#     """Generate projective transform matrix for tfa.image.transform.
-#     Args:
-#         angle(tensorflow.python.framework.ops.EagerTensor): The rotation angle.
-#         image_w(tensorflow.python.framework.ops.EagerTensor): The width of the image.
-#         image_h(tensorflow.python.framework.ops.EagerTensor): The height of the image.
-#     Returns:
-#         projective transform matrix(tensorflow.python.framework.ops.EagerTensor)
-#     """
-#     with tf.name_scope("rotate_parent"):
-#         angle_or_angles = tf.convert_to_tensor(angle,
-#                                                name="angles",
-#                                                dtype=tf.dtypes.float32)
-#         angles = angle_or_angles[None]
-#         x_offset = ((image_w - 1) - (tf.math.cos(angles) *
-#                                      (image_w - 1) - tf.math.sin(angles) *
-#                                      (image_h - 1))) / 2.0
-#         y_offset = ((image_h - 1) - (tf.math.sin(angles) *
-#                                      (image_w - 1) + tf.math.cos(angles) *
-#                                      (image_h - 1))) / 2.0
-#         num_angles = tf.shape(angles)[0]
-#     return tf.concat([
-#         tf.math.cos(angles)[:, None], -tf.math.sin(angles)[:, None],
-#         x_offset[:, None],
-#         tf.math.sin(angles)[:, None],
-#         tf.math.cos(angles)[:, None], y_offset[:, None],
-#         tf.zeros((1, 2))
-#     ],
-#                      axis=1)
-
-
-# @tf.function
-# def rotate(image, angle):
-#     """Generates a rotated image with the use of tfa.image.transform
-#     Args:
-#         image(tensorflow.python.framework.ops.Tensor): The image.
-#         angle(tensorflow.python.framework.ops.EagerTensor): The rotation angle.
-#     Returns:
-#         The rotated image.
-#     """
-#     with tf.name_scope("rotate"):
-#         image = tf.convert_to_tensor(image)
-#         img = img_utils.to_4D_image(image)
-#         ndim = image.get_shape().ndims
-#         image_h = tf.cast(img.shape[0], tf.dtypes.float32)
-#         image_w = tf.cast(img.shape[1], tf.dtypes.float32)
-#         rotation_key = angles_to_projective_transforms(
-#             angle, image_w, image_h)
-#         output = tfa.image.transform(img,
-#                                      rotation_key,
-#                                      interpolation="NEAREST")
-#     return img_utils.from_4D_image(output, ndim)
-
-
 def scale_image(image, resize=False, w=None, h=None):
     """Image Normalization.
     Args:
@@ -105,6 +50,7 @@ def random_jitter_boxes(boxes, box_jitter, seed=10):
     boxes = jitter_boxes(boxes, jx, jy, jw, jh)
     return boxes
 
+'''
 def resize_crop_filter(image, boxes, default_width, default_height, target_width, target_height):
     with tf.name_scope("resize_crop_filter"):
         image = tf.image.resize(image, (target_width, target_height))
@@ -113,34 +59,32 @@ def resize_crop_filter(image, boxes, default_width, default_height, target_width
         image_scale = tf.cast([target_height / default_height, target_width / default_width], boxes.dtype)
         output_size  = tf.cast([target_height, target_width], boxes.dtype)
         offset = tf.cast([0, 0], boxes.dtype)
-        print( boxes.shape)
         boxes = preprocess_ops.resize_and_crop_boxes(boxes, image_scale, output_size, offset)
-        print(image.shape, boxes.shape)
     return image, boxes
+'''
 
-# def resize_crop_filter(image, boxes, default_width, default_height, target_width, target_height):
-#     with tf.name_scope("resize_crop_filter"):
-#         image = tf.image.resize(image, (target_width, target_height))
-#         image = tf.image.resize_with_crop_or_pad(image, target_height=default_height, target_width=default_width)
-#
-#         default_width = tf.cast(default_width, boxes.dtype)
-#         default_height = tf.cast(default_height, boxes.dtype)
-#         target_width = tf.cast(target_width, boxes.dtype)
-#         target_height = tf.cast(target_height, boxes.dtype)
-#
-#         shift_width =  default_width - (target_width + default_width)/2
-#         shift_height =  default_height - (target_height + default_height)/2
-#         aspect_change_width = target_width/default_width
-#         aspect_change_height = target_height/default_height
-#
-#         boxes = box_utils.yxyx_to_xcycwh(boxes)
-#         x, y, width, height = tf.split(boxes, 4, axis = -1)
-#         x = ((x * target_width) + shift_width)/default_width
-#         y = ((y * target_height) + shift_height)/default_width
-#         width = width * aspect_change_width
-#         height = height * aspect_change_height
-#         boxes = box_utils.xcycwh_to_yxyx(tf.concat([x, y, width, height], axis = -1))
-#     return image, boxes
+def resize_crop_filter(image, boxes, default_width, default_height, target_width, target_height):
+    with tf.name_scope("resize_crop_filter"):
+        image = tf.image.resize(image, (target_width, target_height))
+        image = tf.image.resize_with_crop_or_pad(image, target_height=default_height, target_width=default_width)
+
+        default_width = tf.cast(default_width, boxes.dtype)
+        default_height = tf.cast(default_height, boxes.dtype)
+        target_width = tf.cast(target_width, boxes.dtype)
+        target_height = tf.cast(target_height, boxes.dtype)
+
+        shift_width =  default_width - (target_width + default_width)/2
+        shift_height =  default_height - (target_height + default_height)/2
+        aspect_change_width = target_width/default_width
+        aspect_change_height = target_height/default_height
+
+        x, y, width, height = tf.split(boxes, 4, axis = -1)
+        x = ((x * target_width) + shift_width)/default_width
+        y = ((y * target_height) + shift_height)/default_width
+        width = width * aspect_change_width
+        height = height * aspect_change_height
+        
+    return image, boxes
 
 
 def random_translate(image, box, t, seed=10):
