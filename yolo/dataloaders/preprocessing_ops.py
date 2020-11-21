@@ -73,14 +73,11 @@ def resize_crop_filter(image, boxes, default_width, default_height, target_width
         target_width = tf.cast(target_width, boxes.dtype)
         target_height = tf.cast(target_height, boxes.dtype)
 
-        aspect_change_width = target_width/default_width
-        aspect_change_height = target_height/default_height
-
         x, y, width, height = tf.split(boxes, 4, axis = -1)
         x = (x - 0.5) * target_width / default_width + 0.5
         y = (y - 0.5) * target_height / default_height + 0.5
-        width = width * aspect_change_width
-        height = height * aspect_change_height
+        width = width * target_width / default_width
+        height = height * target_height / default_height
         boxes = tf.concat([x, y, width, height], axis = -1)
         
     return image, boxes
