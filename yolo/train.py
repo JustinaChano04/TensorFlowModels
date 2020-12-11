@@ -18,7 +18,8 @@ from yolo.utils.run_utils import prep_gpu
 try:
   prep_gpu()
 except:
-  print("GPUs ready")
+  print("GPU's already prepped")
+
   
 from absl import app
 from absl import flags

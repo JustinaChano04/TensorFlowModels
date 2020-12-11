@@ -396,6 +396,12 @@ class Darknet(ks.Model):
     }
     return layer_config
 
+
+from yolo.utils import DarkNetConverter
+from yolo.utils._darknet2tf import load_weights2 as lw
+from yolo.utils._darknet2tf.load_weights import split_converter
+from yolo.utils.downloads.file_manager import download
+import os
 @factory.register_backbone_builder('darknet')
 def build_darknet(
     input_specs: tf.keras.layers.InputSpec,
@@ -415,4 +421,44 @@ def build_darknet(
                  norm_epsilon=norm_activation_config.norm_epsilon,
                  kernel_regularizer=l2_regularizer)
   model.summary()
+
+
+  BACKWEIGHTS = {
+    "darknettiny": {"weights":"cache://yolov3-tiny.weights",
+                    "cfg": "cache://yolov3-tiny.cfg"},
+    "darknet53": {"weights":"cache://yolov3.weights",
+                    "cfg": "cache://yolov3.cfg"},
+    "cspdarknet53": {"weights":"cache://yolov4.weights",
+                    "cfg": "cache://yolov4.cfg"},
+    "cspdarknettiny": {"weights": "cache://yolov4-tiny.weights",
+                    "cfg": "cache://yolov4-tiny.cfg"}
+  }
+
+  config_file = BACKWEIGHTS[backbone_cfg.model_id]["cfg"]
+  weights_file = BACKWEIGHTS[backbone_cfg.model_id]["weights"]
+
+  path = os.path.abspath("cache") 
+  if (not os.path.isdir(path)):
+      os.mkdir(path)
+  
+  cfg = f"{path}/cfg/{config_file.split('/')[-1]}"
+  if not os.path.isfile(cfg):
+      download(config_file.split("/")[-1])
+  
+  wgt = f"{path}/weights/{weights_file.split('/')[-1]}"
+  if not os.path.isfile(wgt):
+      download(weights_file.split("/")[-1])
+    
+  list_encdec = DarkNetConverter.read(cfg, wgt)
+
+  splits = model._splits
+  if "neck_split" in splits.keys():
+      encoder, neck, decoder = split_converter(list_encdec, splits["backbone_split"],splits["neck_split"])
+  else:
+      encoder, decoder = split_converter(list_encdec,splits["backbone_split"])
+      neck = None
+
+  lw.load_weights_backbone(model, encoder)
+  model.trainable = False
+
   return model

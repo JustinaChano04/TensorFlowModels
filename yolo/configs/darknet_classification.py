@@ -21,6 +21,8 @@ class ImageClassificationModel(hyperparams.Config):
   norm_activation: common.NormActivation = common.NormActivation()
   # Adds a BatchNormalization layer pre-GlobalAveragePooling in classification
   add_head_batch_norm: bool = False
+  min_level: int = 3
+  max_level: int = 3
 
 
 @dataclasses.dataclass

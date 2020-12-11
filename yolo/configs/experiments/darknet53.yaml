@@ -8,7 +8,7 @@ task:
     backbone:
       type: 'darknet'
       darknet:
-        model_id: 'darknet53'
+        model_id: 'cspdarknet53'
     norm_activation: 
       activation: 'mish'
   losses:
@@ -27,7 +27,7 @@ task:
     dtype: 'float16'
     drop_remainder: false
 trainer:
-  train_steps: 1200000 # epochs: 120
+  train_steps: 12000000 # epochs: 120
   validation_steps: 400 # size of validation data
   validation_interval: 10000
   steps_per_loop: 10000
