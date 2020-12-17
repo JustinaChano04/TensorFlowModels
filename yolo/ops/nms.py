@@ -1,4 +1,5 @@
 import tensorflow as tf
 
 
-def nms():
+def nms(inputs):
+    return inputs

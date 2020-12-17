@@ -104,9 +104,9 @@ class YoloLayer(ks.Model):
         
 
         # reduce the dimentions of the box predictions to (batch size, max predictions, 4)
-        box = tf.boolean_mask(box, mask, axis=1)[:, :200, :]
+        box = tf.boolean_mask(box, mask, axis=1)#[:, :200, :]
         # reduce the dimentions of the box predictions to (batch size, max predictions, classes)
-        classifications = tf.boolean_mask(scaled, mask, axis=1)[:, :200, :]
+        classifications = tf.boolean_mask(scaled, mask, axis=1)#[:, :200, :]
         return box, classifications, num_dets
 
     def call(self, inputs):
