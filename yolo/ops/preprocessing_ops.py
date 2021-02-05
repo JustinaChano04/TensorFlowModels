@@ -3,8 +3,11 @@ import tensorflow_addons as tfa
 import tensorflow.keras.backend as K
 from yolo.ops import box_ops
 from official.vision.beta.ops import preprocess_ops
+from official.vision.beta.ops import box_ops as bo
+
 
 def shift_zeros(data, mask, axis = -2):
+
   zeros = tf.zeros_like(data)
   
   data_flat = tf.boolean_mask(data, mask)
@@ -40,6 +43,7 @@ def random_translate(image, box, classes, t, seed=10):
   box, classes = translate_boxes(box, classes, t_x, t_y)
   image = translate_image(image, t_x, t_y)
   return image, box, classes
+
 
 def translate_boxes(box, classes, translate_x, translate_y):
   with tf.name_scope('translate_boxs'):
@@ -357,6 +361,7 @@ def pad_filter_to_bbox(image, boxes, classes, target_width, target_height, offse
   return image, boxes, classes
 
 
+
 def fit_preserve_aspect_ratio(image,
                               boxes,
                               width=None,
@@ -663,3 +668,76 @@ def build_batch_grided_gt(y_true, mask, size, num_classes, dtype,
     update = update.stack()
     full = tf.tensor_scatter_nd_update(full, update_index, update)
   return full
+
+
+def patch_four(images, boxes, classes):
+  image1, image2, image3, image4 = tf.split(images, 4, axis = 0)
+  patch1 = tf.concat([image1,image2], axis = -2)
+  patch2 = tf.concat([image3, image4], axis = -2)
+  full_image = tf.concat([patch1, patch2], axis = -3)
+  num_instances = tf.shape(boxes)[-2]
+
+  #assume box xywh
+  box1, box2, box3, box4 = tf.split(boxes * 0.5, 4, axis = 0)
+  class1, class2, class3, class4 = tf.split(classes, 4, axis = 0)
+
+  #unpad the tensors
+  box1 = unpad_tensor(box1)
+  box2 = unpad_tensor(box2)
+  box3 = unpad_tensor(box3)
+  box4 = unpad_tensor(box4)
+  class1 = unpad_tensor(class1, -1)
+  class2 = unpad_tensor(class2, -1)
+  class3 = unpad_tensor(class3, -1)
+  class4 = unpad_tensor(class4, -1)
+
+  #translate boxes
+  box2, class2 = translate_boxes(box2, class2, .5, 0)
+  box3, class3 = translate_boxes(box3, class3, 0, .5)
+  box4, class4 = translate_boxes(box4, class4, .5, .5)
+
+  full_boxes = tf.concat([box1, box2, box3, box4], axis = -2)
+  full_class = tf.concat([class1, class2, class3, class4], axis = -1)
+
+  full_boxes = preprocess_ops.clip_or_pad_to_fixed_size(full_boxes, num_instances, 0)
+  full_class = preprocess_ops.clip_or_pad_to_fixed_size(full_class, num_instances, -1)
+  return full_image, tf.expand_dims(full_boxes, axis = 0), tf.expand_dims(full_class, axis = 0)
+
+def random_crop_contain_center(image, boxes, classes, crop_fraction, seed=10):
+  with tf.name_scope('random_crop_contain_center'):
+    image_size = tf.cast(tf.shape(image)[:2], dtype=tf.float32)
+    crop_size = (crop_fraction * tf.math.minimum(image_size[0], image_size[1]))
+    crop_offset = tf.cast((image_size - crop_size) / 2.0, dtype=tf.int32)
+    crop_size = tf.cast(crop_size, dtype=tf.int32)
+    jitter = tf.random.uniform([],
+                               minval=-crop_offset[0],
+                               maxval= crop_offset[0],
+                               seed=seed,
+                               dtype=tf.int32)
+    crop_offset += jitter
+    cropped_image = image[
+        crop_offset[0]:crop_offset[0] + crop_size,
+        crop_offset[1]:crop_offset[1] + crop_size, :]
+    y_scale = tf.cast(crop_size, tf.float32) / image_size[0]
+    x_scale = tf.cast(crop_size, tf.float32) / image_size[1]
+    image_scale = tf.convert_to_tensor([y_scale, x_scale])
+    cropped_shape = tf.convert_to_tensor([crop_size, crop_size])
+
+    boxes = bo.denormalize_boxes(boxes, image_size)
+    boxes -= tf.tile(tf.expand_dims(tf.cast(crop_offset, tf.float32), axis=0), [1, 2])
+    boxes = bo.clip_boxes(boxes, cropped_shape)
+    boxes = bo.normalize_boxes(boxes, cropped_shape)
+    indices = bo.get_non_empty_box_indices(boxes)
+    boxes = tf.gather(boxes, indices)
+    classes = tf.gather(classes, indices)
+    return cropped_image, boxes, classes
+
+def unpad_tensor(input_tensor, padding_value = 0):
+  if tf.rank(input_tensor) == 3:
+    abs_sum_tensor = tf.reduce_sum(tf.abs(input_tensor), -1)
+    padding_vector = tf.ones(shape = (1, 1)) * padding_value
+    mask = abs_sum_tensor != padding_vector
+    return input_tensor[mask]
+  elif tf.rank(input_tensor) == 2:
+    return input_tensor[input_tensor != padding_value]
+
