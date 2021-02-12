@@ -6,22 +6,28 @@ from official.vision.beta.ops import preprocess_ops
 from official.vision.beta.ops import box_ops as bo
 
 
-def shift_zeros(data, mask, axis = -2):
+def shift_zeros(data, mask, axis=-2):
 
   zeros = tf.zeros_like(data)
-  
+
   data_flat = tf.boolean_mask(data, mask)
   nonzero_lens = tf.reduce_sum(tf.cast(mask, dtype=tf.int32), axis=-2)
   nonzero_mask = tf.sequence_mask(nonzero_lens, maxlen=tf.shape(mask)[-2])
   perm1 = tf.range(0, tf.shape(tf.shape(data))[0] - 2)
-  perm2 = tf.roll(tf.range(tf.shape(tf.shape(data))[0] - 2, tf.shape(tf.shape(data))[0]), 1, axis = -1)
+  perm2 = tf.roll(tf.range(
+      tf.shape(tf.shape(data))[0] - 2,
+      tf.shape(tf.shape(data))[0]),
+                  1,
+                  axis=-1)
 
-  perm = tf.concat([perm1, perm2], axis = -1)
-  nonzero_mask = tf.transpose(nonzero_mask, perm = perm)
+  perm = tf.concat([perm1, perm2], axis=-1)
+  nonzero_mask = tf.transpose(nonzero_mask, perm=perm)
   inds = tf.cast(tf.where(nonzero_mask), dtype=tf.int32)
-  nonzero_data = tf.tensor_scatter_nd_update(zeros, tf.cast(tf.where(nonzero_mask), dtype=tf.int32),  data_flat)
+  nonzero_data = tf.tensor_scatter_nd_update(
+      zeros, tf.cast(tf.where(nonzero_mask), dtype=tf.int32), data_flat)
 
-  return nonzero_data 
+  return nonzero_data
+
 
 def scale_image(image, resize=False, w=None, h=None):
   """Image Normalization.
@@ -37,6 +43,7 @@ def scale_image(image, resize=False, w=None, h=None):
     image = image / 255
   return image
 
+
 def random_translate(image, box, classes, t, seed=10):
   t_x = tf.random.uniform(minval=-t, maxval=t, shape=(), dtype=tf.float32)
   t_y = tf.random.uniform(minval=-t, maxval=t, shape=(), dtype=tf.float32)
@@ -48,7 +55,7 @@ def random_translate(image, box, classes, t, seed=10):
 def translate_boxes(box, classes, translate_x, translate_y):
   with tf.name_scope('translate_boxs'):
     box = box_ops.yxyx_to_xcycwh(box)
-    x, y, w, h = tf.split(box, 4, axis = -1)
+    x, y, w, h = tf.split(box, 4, axis=-1)
     x = x + translate_x
     y = y + translate_y
 
@@ -61,12 +68,12 @@ def translate_boxes(box, classes, translate_x, translate_y):
     y_mask = tf.math.logical_and(y_mask_lower, y_mask_upper)
     mask = tf.math.logical_and(x_mask, y_mask)
 
-    x = shift_zeros(x, mask) #tf.boolean_mask(x, mask)
-    y = shift_zeros(y, mask) #tf.boolean_mask(y, mask)
-    w = shift_zeros(w, mask) #tf.boolean_mask(w, mask)
-    h = shift_zeros(h, mask) #tf.boolean_mask(h, mask)
-    classes = shift_zeros(tf.expand_dims(classes, axis = -1), mask)
-    classes = tf.squeeze(classes, axis = -1)
+    x = shift_zeros(x, mask)  #tf.boolean_mask(x, mask)
+    y = shift_zeros(y, mask)  #tf.boolean_mask(y, mask)
+    w = shift_zeros(w, mask)  #tf.boolean_mask(w, mask)
+    h = shift_zeros(h, mask)  #tf.boolean_mask(h, mask)
+    classes = shift_zeros(tf.expand_dims(classes, axis=-1), mask)
+    classes = tf.squeeze(classes, axis=-1)
 
     box = tf.concat([x, y, w, h], axis=-1)
     box = box_ops.xcycwh_to_yxyx(box)
@@ -87,65 +94,88 @@ def pad_max_instances(value, instances, pad_value=0, pad_axis=0):
   shape = tf.shape(value)
   dim1 = shape[pad_axis]
   take = tf.math.reduce_min([instances, dim1])
-  value, _ = tf.split(
-      value, [take, -1], axis=pad_axis)  # value[:instances, ...]
+  value, _ = tf.split(value, [take, -1],
+                      axis=pad_axis)  # value[:instances, ...]
   pad = tf.convert_to_tensor([tf.math.reduce_max([instances - dim1, 0])])
   nshape = tf.concat([shape[:pad_axis], pad, shape[(pad_axis + 1):]], axis=0)
   pad_tensor = tf.fill(nshape, tf.cast(pad_value, dtype=value.dtype))
   value = tf.concat([value, pad_tensor], axis=pad_axis)
   return value
 
-def resize_crop_filter(image, boxes, classes, default_width, default_height, target_width, target_height, randomize = False):
+
+def resize_crop_filter(image,
+                       boxes,
+                       classes,
+                       default_width,
+                       default_height,
+                       target_width,
+                       target_height,
+                       randomize=False):
   with tf.name_scope('resize_crop_filter'):
     image = tf.image.resize(image, (target_width, target_height))
 
     if default_width > target_width:
-      dx = (default_width - target_width)//2
-      dy = (default_height - target_height)//2
+      dx = (default_width - target_width) // 2
+      dy = (default_height - target_height) // 2
 
       if randomize:
-        dx = tf.random.uniform([], minval = 0, maxval = dx * 2, dtype = tf.int32)
-        dy = tf.random.uniform([], minval = 0, maxval = dy * 2, dtype = tf.int32)
+        dx = tf.random.uniform([], minval=0, maxval=dx * 2, dtype=tf.int32)
+        dy = tf.random.uniform([], minval=0, maxval=dy * 2, dtype=tf.int32)
 
-      image, boxes, classes = pad_filter_to_bbox(image, boxes, classes, default_width, default_height, dx, dy)
+      image, boxes, classes = pad_filter_to_bbox(image, boxes, classes,
+                                                 default_width, default_height,
+                                                 dx, dy)
     elif default_width < target_width:
-      dx = (target_width - default_width)//2
-      dy = (target_height - default_height)//2
+      dx = (target_width - default_width) // 2
+      dy = (target_height - default_height) // 2
 
       if randomize:
-        dx = tf.random.uniform([], minval = 0, maxval = dx * 2, dtype = tf.int32)
-        dy = tf.random.uniform([], minval = 0, maxval = dy * 2, dtype = tf.int32)
+        dx = tf.random.uniform([], minval=0, maxval=dx * 2, dtype=tf.int32)
+        dy = tf.random.uniform([], minval=0, maxval=dy * 2, dtype=tf.int32)
 
-      image, boxes, classes = crop_filter_to_bbox(image, boxes, classes, default_width, default_height, dx, dy, fix = False)
+      image, boxes, classes = crop_filter_to_bbox(image,
+                                                  boxes,
+                                                  classes,
+                                                  default_width,
+                                                  default_height,
+                                                  dx,
+                                                  dy,
+                                                  fix=False)
   return image, boxes, classes
 
 
-
-
-def crop_filter_to_bbox(image, boxes, classes, target_width, target_height, offset_width, offset_height, fix = False):
+def crop_filter_to_bbox(image,
+                        boxes,
+                        classes,
+                        target_width,
+                        target_height,
+                        offset_width,
+                        offset_height,
+                        fix=False):
   with tf.name_scope('resize_crop_filter'):
     shape = tf.shape(image)
 
     if tf.shape(shape)[0] == 4:
       height = shape[1]
       width = shape[2]
-    else: # tf.shape(shape)[0] == 3:
+    else:  # tf.shape(shape)[0] == 3:
       height = shape[0]
-      width = shape[1] 
-    
-    image = tf.image.crop_to_bounding_box(image, offset_height, offset_width, target_height, target_width)
-    if fix: 
-      image = tf.image.pad_to_bounding_box(image, offset_height, offset_width, height, width)
+      width = shape[1]
 
-    x_lower_bound = offset_width/width
-    y_lower_bound = offset_height/height
+    image = tf.image.crop_to_bounding_box(image, offset_height, offset_width,
+                                          target_height, target_width)
+    if fix:
+      image = tf.image.pad_to_bounding_box(image, offset_height, offset_width,
+                                           height, width)
 
-    x_upper_bound = (offset_width + target_width)/width
-    y_upper_bound = (offset_height + target_height)/height
+    x_lower_bound = offset_width / width
+    y_lower_bound = offset_height / height
 
+    x_upper_bound = (offset_width + target_width) / width
+    y_upper_bound = (offset_height + target_height) / height
 
     boxes = box_ops.yxyx_to_xcycwh(boxes)
-    x, y, w, h = tf.split(tf.cast(boxes, x_lower_bound.dtype), 4, axis = -1)
+    x, y, w, h = tf.split(tf.cast(boxes, x_lower_bound.dtype), 4, axis=-1)
 
     x_mask_lower = x > x_lower_bound
     y_mask_lower = y > y_lower_bound
@@ -154,51 +184,54 @@ def crop_filter_to_bbox(image, boxes, classes, target_width, target_height, offs
 
     x_mask = tf.math.logical_and(x_mask_lower, x_mask_upper)
     y_mask = tf.math.logical_and(y_mask_lower, y_mask_upper)
-    
+
     mask = tf.math.logical_and(x_mask, y_mask)
 
-    x = shift_zeros(x, mask) #tf.boolean_mask(x, mask)
-    y = shift_zeros(y, mask) #tf.boolean_mask(y, mask)
-    w = shift_zeros(w, mask) #tf.boolean_mask(w, mask)
-    h = shift_zeros(h, mask) #tf.boolean_mask(h, mask)
-    classes = shift_zeros(tf.expand_dims(classes, axis = -1), mask)
-    classes = tf.squeeze(classes, axis = -1)
-
+    x = shift_zeros(x, mask)  #tf.boolean_mask(x, mask)
+    y = shift_zeros(y, mask)  #tf.boolean_mask(y, mask)
+    w = shift_zeros(w, mask)  #tf.boolean_mask(w, mask)
+    h = shift_zeros(h, mask)  #tf.boolean_mask(h, mask)
+    classes = shift_zeros(tf.expand_dims(classes, axis=-1), mask)
+    classes = tf.squeeze(classes, axis=-1)
 
     if not fix:
-      x = (x - x_lower_bound) * tf.cast(width/target_width, x.dtype) 
-      y = (y - y_lower_bound) * tf.cast(height/target_height, y.dtype) 
-      w = w * tf.cast(width/target_width, w.dtype)
-      h = h * tf.cast(height/target_height, h.dtype)
+      x = (x - x_lower_bound) * tf.cast(width / target_width, x.dtype)
+      y = (y - y_lower_bound) * tf.cast(height / target_height, y.dtype)
+      w = w * tf.cast(width / target_width, w.dtype)
+      h = h * tf.cast(height / target_height, h.dtype)
 
-    boxes = tf.cast(tf.concat([x, y, w, h], axis = -1), boxes.dtype)
+    boxes = tf.cast(tf.concat([x, y, w, h], axis=-1), boxes.dtype)
     boxes = box_ops.xcycwh_to_yxyx(boxes)
   return image, boxes, classes
 
-def cut_out(image_full, boxes, classes, target_width, target_height, offset_width, offset_height):
+
+def cut_out(image_full, boxes, classes, target_width, target_height,
+            offset_width, offset_height):
   shape = tf.shape(image_full)
 
   if tf.shape(shape)[0] == 4:
     width = shape[1]
     height = shape[2]
-  else: # tf.shape(shape)[0] == 3:
+  else:  # tf.shape(shape)[0] == 3:
     width = shape[0]
-    height = shape[1] 
-  
-  image_crop = tf.image.crop_to_bounding_box(image_full, offset_height, offset_width, target_height, target_width) + 1
-  image_crop = tf.ones_like(image_crop)
-  image_crop = tf.image.pad_to_bounding_box(image_crop, offset_height, offset_width, height, width)
-  image_crop = 1 - image_crop
-  
-  x_lower_bound = offset_width/width
-  y_lower_bound = offset_height/height
+    height = shape[1]
 
-  x_upper_bound = (offset_width + target_width)/width
-  y_upper_bound = (offset_height + target_height)/height
+  image_crop = tf.image.crop_to_bounding_box(
+      image_full, offset_height, offset_width, target_height, target_width) + 1
+  image_crop = tf.ones_like(image_crop)
+  image_crop = tf.image.pad_to_bounding_box(image_crop, offset_height,
+                                            offset_width, height, width)
+  image_crop = 1 - image_crop
+
+  x_lower_bound = offset_width / width
+  y_lower_bound = offset_height / height
+
+  x_upper_bound = (offset_width + target_width) / width
+  y_upper_bound = (offset_height + target_height) / height
 
   boxes = box_ops.yxyx_to_xcycwh(boxes)
-  
-  x, y, w, h = tf.split(tf.cast(boxes, x_lower_bound.dtype), 4, axis = -1)
+
+  x, y, w, h = tf.split(tf.cast(boxes, x_lower_bound.dtype), 4, axis=-1)
 
   x_mask_lower = x > x_lower_bound
   y_mask_lower = y > y_lower_bound
@@ -209,83 +242,105 @@ def cut_out(image_full, boxes, classes, target_width, target_height, offset_widt
   y_mask = tf.math.logical_and(y_mask_lower, y_mask_upper)
   mask = tf.math.logical_not(tf.math.logical_and(x_mask, y_mask))
 
-  x = shift_zeros(x, mask) #tf.boolean_mask(x, mask)
-  y = shift_zeros(y, mask) #tf.boolean_mask(y, mask)
-  w = shift_zeros(w, mask) #tf.boolean_mask(w, mask)
-  h = shift_zeros(h, mask) #tf.boolean_mask(h, mask)
-  classes = shift_zeros(tf.expand_dims(classes, axis = -1), mask)
-  classes = tf.squeeze(classes, axis = -1)
+  x = shift_zeros(x, mask)  #tf.boolean_mask(x, mask)
+  y = shift_zeros(y, mask)  #tf.boolean_mask(y, mask)
+  w = shift_zeros(w, mask)  #tf.boolean_mask(w, mask)
+  h = shift_zeros(h, mask)  #tf.boolean_mask(h, mask)
+  classes = shift_zeros(tf.expand_dims(classes, axis=-1), mask)
+  classes = tf.squeeze(classes, axis=-1)
 
-  boxes = tf.cast(tf.concat([x, y, w, h], axis = -1), boxes.dtype)
+  boxes = tf.cast(tf.concat([x, y, w, h], axis=-1), boxes.dtype)
   boxes = box_ops.xcycwh_to_yxyx(boxes)
 
   image_full *= image_crop
   return image_full, boxes, classes
 
-def cutmix_1(image_to_crop, boxes1, classes1, image_mask, boxes2, classes2, target_width, target_height, offset_width, offset_height):
+
+def cutmix_1(image_to_crop, boxes1, classes1, image_mask, boxes2, classes2,
+             target_width, target_height, offset_width, offset_height):
   with tf.name_scope('cutmix'):
-    image, boxes, classes = cut_out(image_mask, boxes2, classes2, target_width, target_height, offset_width, offset_height)
-    image_, boxes_, classes_ = crop_filter_to_bbox(image_to_crop, boxes1, classes1, target_width, target_height, offset_width, offset_height, fix=True)
+    image, boxes, classes = cut_out(image_mask, boxes2, classes2, target_width,
+                                    target_height, offset_width, offset_height)
+    image_, boxes_, classes_ = crop_filter_to_bbox(image_to_crop,
+                                                   boxes1,
+                                                   classes1,
+                                                   target_width,
+                                                   target_height,
+                                                   offset_width,
+                                                   offset_height,
+                                                   fix=True)
     image += image_
-    boxes = tf.concat([boxes, boxes_], axis = -2)
-    classes = tf.concat([classes, classes_], axis = -1)
+    boxes = tf.concat([boxes, boxes_], axis=-2)
+    classes = tf.concat([classes, classes_], axis=-1)
 
     boxes = box_ops.yxyx_to_xcycwh(boxes)
-    x, y, w, h = tf.split(boxes, 4, axis = -1)
-    
-    mask = x > 0
-    x = shift_zeros(x, mask) #tf.boolean_mask(x, mask)
-    y = shift_zeros(y, mask) #tf.boolean_mask(y, mask)
-    w = shift_zeros(w, mask) #tf.boolean_mask(w, mask)
-    h = shift_zeros(h, mask) #tf.boolean_mask(h, mask)
-    classes = shift_zeros(tf.expand_dims(classes, axis = -1), mask)
-    classes = tf.squeeze(classes, axis = -1)
+    x, y, w, h = tf.split(boxes, 4, axis=-1)
 
-    boxes = tf.cast(tf.concat([x, y, w, h], axis = -1), boxes.dtype)
+    mask = x > 0
+    x = shift_zeros(x, mask)  #tf.boolean_mask(x, mask)
+    y = shift_zeros(y, mask)  #tf.boolean_mask(y, mask)
+    w = shift_zeros(w, mask)  #tf.boolean_mask(w, mask)
+    h = shift_zeros(h, mask)  #tf.boolean_mask(h, mask)
+    classes = shift_zeros(tf.expand_dims(classes, axis=-1), mask)
+    classes = tf.squeeze(classes, axis=-1)
+
+    boxes = tf.cast(tf.concat([x, y, w, h], axis=-1), boxes.dtype)
     boxes = box_ops.xcycwh_to_yxyx(boxes)
 
   return image, boxes, classes
 
-def cutmix_batch(image, boxes, classes, target_width, target_height, offset_width, offset_height):
+
+def cutmix_batch(image, boxes, classes, target_width, target_height,
+                 offset_width, offset_height):
   with tf.name_scope('cutmix_batch'):
 
-    image_, boxes_, classes_ = cut_out(image, boxes, classes, target_width, target_height, offset_width, offset_height)
-    image__, boxes__, classes__ = crop_filter_to_bbox(image, boxes, classes, target_width, target_height, offset_width, offset_height, fix=True)
+    image_, boxes_, classes_ = cut_out(image, boxes, classes, target_width,
+                                       target_height, offset_width,
+                                       offset_height)
+    image__, boxes__, classes__ = crop_filter_to_bbox(image,
+                                                      boxes,
+                                                      classes,
+                                                      target_width,
+                                                      target_height,
+                                                      offset_width,
+                                                      offset_height,
+                                                      fix=True)
 
-    mix = tf.random.uniform([], minval = 0, maxval = 1)
-    if mix > 0.5: 
-      i_split1, i_split2 = tf.split(image__, 2, axis = 0)
-      b_split1, b_split2 = tf.split(boxes__, 2, axis = 0)
-      c_split1, c_split2 = tf.split(classes__, 2, axis = 0)
+    mix = tf.random.uniform([], minval=0, maxval=1)
+    if mix > 0.5:
+      i_split1, i_split2 = tf.split(image__, 2, axis=0)
+      b_split1, b_split2 = tf.split(boxes__, 2, axis=0)
+      c_split1, c_split2 = tf.split(classes__, 2, axis=0)
 
-      image__ = tf.concat([i_split2, i_split1], axis = 0)
-      boxes__ = tf.concat([b_split2, b_split1], axis = 0)
-      classes__ = tf.concat([c_split2, c_split1], axis = 0)
+      image__ = tf.concat([i_split2, i_split1], axis=0)
+      boxes__ = tf.concat([b_split2, b_split1], axis=0)
+      classes__ = tf.concat([c_split2, c_split1], axis=0)
 
     image = image_ + image__
-    boxes = tf.concat([boxes_, boxes__], axis = -2)
-    classes = tf.concat([classes_, classes__], axis = -1)
+    boxes = tf.concat([boxes_, boxes__], axis=-2)
+    classes = tf.concat([classes_, classes__], axis=-1)
 
     boxes = box_ops.yxyx_to_xcycwh(boxes)
-    x, y, w, h = tf.split(boxes, 4, axis = -1)
-  
-    mask = x > 0
-    x = shift_zeros(x, mask) #tf.boolean_mask(x, mask)
-    y = shift_zeros(y, mask) #tf.boolean_mask(y, mask)
-    w = shift_zeros(w, mask) #tf.boolean_mask(w, mask)
-    h = shift_zeros(h, mask) #tf.boolean_mask(h, mask)
-    classes = shift_zeros(tf.expand_dims(classes, axis = -1), mask)
-    classes = tf.squeeze(classes, axis = -1)
+    x, y, w, h = tf.split(boxes, 4, axis=-1)
 
-    boxes = tf.cast(tf.concat([x, y, w, h], axis = -1), boxes.dtype)
+    mask = x > 0
+    x = shift_zeros(x, mask)  #tf.boolean_mask(x, mask)
+    y = shift_zeros(y, mask)  #tf.boolean_mask(y, mask)
+    w = shift_zeros(w, mask)  #tf.boolean_mask(w, mask)
+    h = shift_zeros(h, mask)  #tf.boolean_mask(h, mask)
+    classes = shift_zeros(tf.expand_dims(classes, axis=-1), mask)
+    classes = tf.squeeze(classes, axis=-1)
+
+    boxes = tf.cast(tf.concat([x, y, w, h], axis=-1), boxes.dtype)
     boxes = box_ops.xcycwh_to_yxyx(boxes)
 
-    x = tf.squeeze(x, axis = -1)
+    x = tf.squeeze(x, axis=-1)
     classes = tf.where(x == 0, -1, classes)
 
-    num_detections = tf.reduce_sum(tf.cast(x > 0, tf.int32), axis = -1)
+    num_detections = tf.reduce_sum(tf.cast(x > 0, tf.int32), axis=-1)
 
   return image, boxes, classes, num_detections
+
 
 def randomized_cutmix_batch(image, boxes, classes):
   shape = tf.shape(image)
@@ -293,73 +348,91 @@ def randomized_cutmix_batch(image, boxes, classes):
   width = shape[1]
   height = shape[2]
 
-  w_limit = 3 * width//4
-  h_limit = 3 * height//4
+  w_limit = 3 * width // 4
+  h_limit = 3 * height // 4
 
-  twidth = tf.random.uniform([], minval = width//4, maxval = w_limit, dtype = tf.int32)
-  theight = tf.random.uniform([], minval = height//4, maxval = h_limit, dtype = tf.int32)
+  twidth = tf.random.uniform([],
+                             minval=width // 4,
+                             maxval=w_limit,
+                             dtype=tf.int32)
+  theight = tf.random.uniform([],
+                              minval=height // 4,
+                              maxval=h_limit,
+                              dtype=tf.int32)
 
-  owidth = tf.random.uniform([], minval = 0, maxval = width - twidth, dtype = tf.int32)
-  oheight = tf.random.uniform([], minval = 0, maxval = height - theight, dtype = tf.int32)
+  owidth = tf.random.uniform([],
+                             minval=0,
+                             maxval=width - twidth,
+                             dtype=tf.int32)
+  oheight = tf.random.uniform([],
+                              minval=0,
+                              maxval=height - theight,
+                              dtype=tf.int32)
 
-  image, boxes, classes, num_detections = cutmix_batch(image, boxes, classes, twidth, theight, owidth, oheight)
+  image, boxes, classes, num_detections = cutmix_batch(image, boxes, classes,
+                                                       twidth, theight, owidth,
+                                                       oheight)
   return image, boxes, classes, num_detections
+
 
 def randomized_cutmix_split(image, boxes, classes):
   # this is not how it is really done
-  mix = tf.random.uniform([], maxval = 1, dtype = tf.int32)
-  if mix == 1: 
-    i1, i2, i3, i4 = tf.split(image, 4, axis = 0)
-    b1, b2, b3, b4 = tf.split(boxes, 2, axis = 0)
-    c1, c2, c3, c4 = tf.split(classes, 2, axis = 0)
+  mix = tf.random.uniform([], maxval=1, dtype=tf.int32)
+  if mix == 1:
+    i1, i2, i3, i4 = tf.split(image, 4, axis=0)
+    b1, b2, b3, b4 = tf.split(boxes, 2, axis=0)
+    c1, c2, c3, c4 = tf.split(classes, 2, axis=0)
 
-    image = tf.concat([i1, i3, i2, i4], axis = 0)
-    boxes = tf.concat([b1, b3, b2, b4], axis = 0)
-    classes = tf.concat([b1, b3, b2, b4], axis = 0)    
+    image = tf.concat([i1, i3, i2, i4], axis=0)
+    boxes = tf.concat([b1, b3, b2, b4], axis=0)
+    classes = tf.concat([b1, b3, b2, b4], axis=0)
 
-  i_split1, i_split2 = tf.split(image, 2, axis = 0)
-  b_split1, b_split2 = tf.split(boxes, 2, axis = 0)
-  c_split1, c_split2 = tf.split(classes, 2, axis = 0)
+  i_split1, i_split2 = tf.split(image, 2, axis=0)
+  b_split1, b_split2 = tf.split(boxes, 2, axis=0)
+  c_split1, c_split2 = tf.split(classes, 2, axis=0)
 
-  
-  i_split1, b_split1, c_split1, num_dets1 = randomized_cutmix_batch(i_split1, b_split1, c_split1)
-  i_split2, b_split2, c_split2, num_dets2 = randomized_cutmix_batch(i_split2, b_split2, c_split2)
-  image = tf.concat([i_split2, i_split1], axis = 0)
-  boxes = tf.concat([b_split2, b_split1], axis = 0)
-  classes = tf.concat([c_split2, c_split1], axis = 0)
-  num_detections = tf.concat([num_dets2, num_dets1], axis = 0)
+  i_split1, b_split1, c_split1, num_dets1 = randomized_cutmix_batch(
+      i_split1, b_split1, c_split1)
+  i_split2, b_split2, c_split2, num_dets2 = randomized_cutmix_batch(
+      i_split2, b_split2, c_split2)
+  image = tf.concat([i_split2, i_split1], axis=0)
+  boxes = tf.concat([b_split2, b_split1], axis=0)
+  classes = tf.concat([c_split2, c_split1], axis=0)
+  num_detections = tf.concat([num_dets2, num_dets1], axis=0)
   #image, boxes, classes, num_detections = randomized_cutmix_batch(image, boxes, classes)
 
   return image, boxes, classes, num_detections
 
-def pad_filter_to_bbox(image, boxes, classes, target_width, target_height, offset_width, offset_height):
+
+def pad_filter_to_bbox(image, boxes, classes, target_width, target_height,
+                       offset_width, offset_height):
   with tf.name_scope('resize_crop_filter'):
     shape = tf.shape(image)
 
     if tf.shape(shape)[0] == 4:
       height = shape[1]
       width = shape[2]
-    else: # tf.shape(shape)[0] == 3:
+    else:  # tf.shape(shape)[0] == 3:
       height = shape[0]
-      width = shape[1] 
-    
-    image = tf.image.pad_to_bounding_box(image, offset_height, offset_width, target_height, target_width)
+      width = shape[1]
 
-    x_lower_bound = tf.cast(offset_width/width, tf.float32)
-    y_lower_bound = tf.cast(offset_height/height, tf.float32)
+    image = tf.image.pad_to_bounding_box(image, offset_height, offset_width,
+                                         target_height, target_width)
+
+    x_lower_bound = tf.cast(offset_width / width, tf.float32)
+    y_lower_bound = tf.cast(offset_height / height, tf.float32)
 
     boxes = box_ops.yxyx_to_xcycwh(boxes)
-    x, y, w, h = tf.split(tf.cast(boxes, x_lower_bound.dtype), 4, axis = -1)
+    x, y, w, h = tf.split(tf.cast(boxes, x_lower_bound.dtype), 4, axis=-1)
 
-    x = (x + x_lower_bound) * tf.cast(width/target_width, x.dtype) 
-    y = (y + y_lower_bound) * tf.cast(height/target_height, y.dtype) 
-    w = w * tf.cast(width/target_width, w.dtype)
-    h = h * tf.cast(height/target_height, h.dtype)
+    x = (x + x_lower_bound) * tf.cast(width / target_width, x.dtype)
+    y = (y + y_lower_bound) * tf.cast(height / target_height, y.dtype)
+    w = w * tf.cast(width / target_width, w.dtype)
+    h = h * tf.cast(height / target_height, h.dtype)
 
-    boxes = tf.cast(tf.concat([x, y, w, h], axis = -1), boxes.dtype)
+    boxes = tf.cast(tf.concat([x, y, w, h], axis=-1), boxes.dtype)
     boxes = box_ops.xcycwh_to_yxyx(boxes)
   return image, boxes, classes
-
 
 
 def fit_preserve_aspect_ratio(image,
@@ -429,19 +502,18 @@ def get_best_anchor(y_true, anchors, width=1, height=1):
 
     # build a matrix of anchor boxes
     anchors = tf.transpose(anchors, perm=[1, 0])
-    anchor_xy = tf.tile(
-        tf.expand_dims(anchor_xy, axis=-1), [1, 1, tf.shape(anchors)[-1]])
-    anchors = tf.tile(
-        tf.expand_dims(anchors, axis=0), [tf.shape(anchor_xy)[0], 1, 1])
+    anchor_xy = tf.tile(tf.expand_dims(anchor_xy, axis=-1),
+                        [1, 1, tf.shape(anchors)[-1]])
+    anchors = tf.tile(tf.expand_dims(anchors, axis=0),
+                      [tf.shape(anchor_xy)[0], 1, 1])
 
     # stack the xy so, each anchor is asscoaited once with each center from the ground truth input
     anchors = K.concatenate([anchor_xy, anchors], axis=1)
     anchors = tf.transpose(anchors, perm=[2, 0, 1])
 
     # copy the gt n times so that each anchor from above can be compared to input ground truth
-    truth_comp = tf.tile(
-        tf.expand_dims(y_true[..., 0:4], axis=-1),
-        [1, 1, tf.shape(anchors)[0]])
+    truth_comp = tf.tile(tf.expand_dims(y_true[..., 0:4], axis=-1),
+                         [1, 1, tf.shape(anchors)[0]])
     truth_comp = tf.transpose(truth_comp, perm=[2, 0, 1])
 
     # compute intersection over union of the boxes, and take the argmax of comuted iou for each box.
@@ -455,10 +527,9 @@ def get_best_anchor(y_true, anchors, width=1, height=1):
     if num_k <= 0:
       num_k = 1.0
 
-    values, indexes = tf.math.top_k(
-        tf.transpose(iou_raw, perm=[1, 0]),
-        k=tf.cast(num_k, dtype=tf.int32),
-        sorted=True)
+    values, indexes = tf.math.top_k(tf.transpose(iou_raw, perm=[1, 0]),
+                                    k=tf.cast(num_k, dtype=tf.int32),
+                                    sorted=True)
     ind_mask = tf.cast(values > 0.213, dtype=indexes.dtype)
     iou_index = tf.concat([
         K.expand_dims(indexes[..., 0], axis=-1),
@@ -482,7 +553,8 @@ def get_best_anchor(y_true, anchors, width=1, height=1):
                        axis=-1)
   return tf.cast(iou_index, dtype=tf.float32)
 
-# add better documentation 
+
+# add better documentation
 def build_grided_gt(y_true, mask, size, num_classes, dtype, use_tie_breaker):
   """
     convert ground truth for use in loss functions
@@ -495,10 +567,9 @@ def build_grided_gt(y_true, mask, size, num_classes, dtype, use_tie_breaker):
         tf.Tensor[] of shape [size, size, #of_anchors, 4, 1, num_classes]
     """
   boxes = tf.cast(y_true['bbox'], dtype)
-  classes = tf.one_hot(
-      tf.cast(y_true['classes'], dtype=tf.int32),
-      depth=num_classes,
-      dtype=dtype)
+  classes = tf.one_hot(tf.cast(y_true['classes'], dtype=tf.int32),
+                       depth=num_classes,
+                       dtype=dtype)
   anchors = tf.cast(y_true['best_anchors'], dtype)
 
   num_boxes = tf.shape(boxes)[0]
@@ -549,9 +620,8 @@ def build_grided_gt(y_true, mask, size, num_classes, dtype, use_tie_breaker):
             value = K.concatenate([boxes[box_id], const, classes[box_id]])
             update = update.write(i, value)
 
-          depth_track = tf.tensor_scatter_nd_update(depth_track,
-                                                    [(y[box_id], x[box_id], p)],
-                                                    [uid])
+          depth_track = tf.tensor_scatter_nd_update(
+              depth_track, [(y[box_id], x[box_id], p)], [uid])
           i += 1
     else:
       index = tf.math.equal(anchors[box_id, 0], mask)
@@ -584,10 +654,9 @@ def build_batch_grided_gt(y_true, mask, size, num_classes, dtype,
         tf.Tensor[] of shape [batch, size, size, #of_anchors, 4, 1, num_classes]
     """
   boxes = tf.cast(y_true['bbox'], dtype)
-  classes = tf.one_hot(
-      tf.cast(y_true['classes'], dtype=tf.int32),
-      depth=num_classes,
-      dtype=dtype)
+  classes = tf.one_hot(tf.cast(y_true['classes'], dtype=tf.int32),
+                       depth=num_classes,
+                       dtype=dtype)
   anchors = tf.cast(y_true['best_anchors'], dtype)
 
   batches = tf.shape(boxes)[0]
@@ -621,8 +690,8 @@ def build_batch_grided_gt(y_true, mask, size, num_classes, dtype,
         for anchor_id in range(tf.shape(anchors)[-1]):
           index = tf.math.equal(anchors[batch, box_id, anchor_id], mask)
           if K.any(index):
-            p = tf.cast(
-                K.argmax(tf.cast(index, dtype=tf.int32)), dtype=tf.int32)
+            p = tf.cast(K.argmax(tf.cast(index, dtype=tf.int32)),
+                        dtype=tf.int32)
             uid = 1
 
             used = depth_track[batch, y[batch, box_id], x[batch, box_id], p]
@@ -671,15 +740,15 @@ def build_batch_grided_gt(y_true, mask, size, num_classes, dtype,
 
 
 def patch_four(images, boxes, classes):
-  image1, image2, image3, image4 = tf.split(images, 4, axis = 0)
-  patch1 = tf.concat([image1,image2], axis = -2)
-  patch2 = tf.concat([image3, image4], axis = -2)
-  full_image = tf.concat([patch1, patch2], axis = -3)
+  image1, image2, image3, image4 = tf.split(images, 4, axis=0)
+  patch1 = tf.concat([image1, image2], axis=-2)
+  patch2 = tf.concat([image3, image4], axis=-2)
+  full_image = tf.concat([patch1, patch2], axis=-3)
   num_instances = tf.shape(boxes)[-2]
 
   #assume box xywh
-  box1, box2, box3, box4 = tf.split(boxes * 0.5, 4, axis = 0)
-  class1, class2, class3, class4 = tf.split(classes, 4, axis = 0)
+  box1, box2, box3, box4 = tf.split(boxes * 0.5, 4, axis=0)
+  class1, class2, class3, class4 = tf.split(classes, 4, axis=0)
 
   #unpad the tensors
   box1 = unpad_tensor(box1)
@@ -696,12 +765,16 @@ def patch_four(images, boxes, classes):
   box3, class3 = translate_boxes(box3, class3, 0, .5)
   box4, class4 = translate_boxes(box4, class4, .5, .5)
 
-  full_boxes = tf.concat([box1, box2, box3, box4], axis = -2)
-  full_class = tf.concat([class1, class2, class3, class4], axis = -1)
+  full_boxes = tf.concat([box1, box2, box3, box4], axis=-2)
+  full_class = tf.concat([class1, class2, class3, class4], axis=-1)
 
-  full_boxes = preprocess_ops.clip_or_pad_to_fixed_size(full_boxes, num_instances, 0)
-  full_class = preprocess_ops.clip_or_pad_to_fixed_size(full_class, num_instances, -1)
-  return full_image, tf.expand_dims(full_boxes, axis = 0), tf.expand_dims(full_class, axis = 0)
+  full_boxes = preprocess_ops.clip_or_pad_to_fixed_size(
+      full_boxes, num_instances, 0)
+  full_class = preprocess_ops.clip_or_pad_to_fixed_size(
+      full_class, num_instances, -1)
+  return full_image, tf.expand_dims(full_boxes,
+                                    axis=0), tf.expand_dims(full_class, axis=0)
+
 
 def random_crop_contain_center(image, boxes, classes, crop_fraction, seed=10):
   with tf.name_scope('random_crop_contain_center'):
@@ -711,20 +784,20 @@ def random_crop_contain_center(image, boxes, classes, crop_fraction, seed=10):
     crop_size = tf.cast(crop_size, dtype=tf.int32)
     jitter = tf.random.uniform([],
                                minval=-crop_offset[0],
-                               maxval= crop_offset[0],
+                               maxval=crop_offset[0],
                                seed=seed,
                                dtype=tf.int32)
     crop_offset += jitter
-    cropped_image = image[
-        crop_offset[0]:crop_offset[0] + crop_size,
-        crop_offset[1]:crop_offset[1] + crop_size, :]
+    cropped_image = image[crop_offset[0]:crop_offset[0] + crop_size,
+                          crop_offset[1]:crop_offset[1] + crop_size, :]
     y_scale = tf.cast(crop_size, tf.float32) / image_size[0]
     x_scale = tf.cast(crop_size, tf.float32) / image_size[1]
     image_scale = tf.convert_to_tensor([y_scale, x_scale])
     cropped_shape = tf.convert_to_tensor([crop_size, crop_size])
 
     boxes = bo.denormalize_boxes(boxes, image_size)
-    boxes -= tf.tile(tf.expand_dims(tf.cast(crop_offset, tf.float32), axis=0), [1, 2])
+    boxes -= tf.tile(tf.expand_dims(tf.cast(crop_offset, tf.float32), axis=0),
+                     [1, 2])
     boxes = bo.clip_boxes(boxes, cropped_shape)
     boxes = bo.normalize_boxes(boxes, cropped_shape)
     indices = bo.get_non_empty_box_indices(boxes)
@@ -732,12 +805,61 @@ def random_crop_contain_center(image, boxes, classes, crop_fraction, seed=10):
     classes = tf.gather(classes, indices)
     return cropped_image, boxes, classes
 
-def unpad_tensor(input_tensor, padding_value = 0):
+
+def unpad_tensor(input_tensor, padding_value=0):
   if tf.rank(input_tensor) == 3:
     abs_sum_tensor = tf.reduce_sum(tf.abs(input_tensor), -1)
-    padding_vector = tf.ones(shape = (1, 1)) * padding_value
+    padding_vector = tf.ones(shape=(1, 1)) * padding_value
     mask = abs_sum_tensor != padding_vector
     return input_tensor[mask]
   elif tf.rank(input_tensor) == 2:
     return input_tensor[input_tensor != padding_value]
 
+
+def mosaic_four(images, boxes, classes):
+  full_image, full_box, full_class = patch_four(images, boxes, classes)
+  cropped_image_1, boxes_1, classes_1 = random_crop_contain_center(
+      full_image[0], full_box[0], full_class[0], 0.7)
+  cropped_image_2, boxes_2, classes_2 = random_crop_contain_center(
+      full_image[0], full_box[0], full_class[0], 0.7)
+  cropped_image_3, boxes_3, classes_3 = random_crop_contain_center(
+      full_image[0], full_box[0], full_class[0], 0.7)
+  cropped_image_4, boxes_4, classes_4 = random_crop_contain_center(
+      full_image[0], full_box[0], full_class[0], 0.7)
+
+  print(tf.shape(cropped_image_1))
+  print(tf.shape(preprocess_ops.clip_or_pad_to_fixed_size(boxes_1, 200, 2)))
+  print(tf.shape(preprocess_ops.clip_or_pad_to_fixed_size(classes_1, 200, -1)))
+
+  cropped_image_1 = tf.expand_dims(cropped_image_1, axis=0)
+  cropped_image_2 = tf.expand_dims(cropped_image_2, axis=0)
+  cropped_image_3 = tf.expand_dims(cropped_image_3, axis=0)
+  cropped_image_4 = tf.expand_dims(cropped_image_4, axis=0)
+
+  num_instances = 200
+
+  boxes_1 = preprocess_ops.clip_or_pad_to_fixed_size(
+      tf.expand_dims(boxes_1, axis=0), num_instances, 2)
+  boxes_2 = preprocess_ops.clip_or_pad_to_fixed_size(
+      tf.expand_dims(boxes_2, axis=0), num_instances, 2)
+  boxes_3 = preprocess_ops.clip_or_pad_to_fixed_size(
+      tf.expand_dims(boxes_3, axis=0), num_instances, 2)
+  boxes_4 = preprocess_ops.clip_or_pad_to_fixed_size(
+      tf.expand_dims(boxes_4, axis=0), num_instances, 2)
+
+  classes_1 = preprocess_ops.clip_or_pad_to_fixed_size(
+      tf.expand_dims(classes_1, axis=0), num_instances, -1)
+  classes_2 = preprocess_ops.clip_or_pad_to_fixed_size(
+      tf.expand_dims(classes_2, axis=0), num_instances, -1)
+  classes_3 = preprocess_ops.clip_or_pad_to_fixed_size(
+      tf.expand_dims(classes_3, axis=0), num_instances, -1)
+  classes_4 = preprocess_ops.clip_or_pad_to_fixed_size(
+      tf.expand_dims(classes_4, axis=0), num_instances, -1)
+
+  cropped_full = tf.concat(
+      [cropped_image_1, cropped_image_2, cropped_image_3, cropped_image_4],
+      axis=0)
+  classes_full = tf.concat([classes_1, classes_2, classes_3, classes_4],
+                           axis=0)
+  boxes_full = tf.concat([boxes_1, boxes_2, boxes_3, boxes_4], axis=0)
+  return cropped_full, boxes_full, classes_full
