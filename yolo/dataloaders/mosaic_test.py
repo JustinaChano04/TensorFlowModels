@@ -45,7 +45,7 @@ for images, label in ds:
   image = drawer(tf.expand_dims(image, axis=0), sample)
 
   for i in range(4):
-    plt.imshow(image[i])
+    plt.imshow(image[0, i])
     plt.show()
   print(f'saved image{i}')
   i += 1

@@ -838,23 +838,15 @@ def mosaic_four(images, boxes, classes):
 
   num_instances = 200
 
-  boxes_1 = preprocess_ops.clip_or_pad_to_fixed_size(
-      tf.expand_dims(boxes_1, axis=0), num_instances, 2)
-  boxes_2 = preprocess_ops.clip_or_pad_to_fixed_size(
-      tf.expand_dims(boxes_2, axis=0), num_instances, 2)
-  boxes_3 = preprocess_ops.clip_or_pad_to_fixed_size(
-      tf.expand_dims(boxes_3, axis=0), num_instances, 2)
-  boxes_4 = preprocess_ops.clip_or_pad_to_fixed_size(
-      tf.expand_dims(boxes_4, axis=0), num_instances, 2)
+  boxes_1 = tf.expand_dims(preprocess_ops.clip_or_pad_to_fixed_size(boxes_1, num_instances, 2), axis=0)
+  boxes_2 = tf.expand_dims(preprocess_ops.clip_or_pad_to_fixed_size(boxes_2, num_instances, 2), axis=0)
+  boxes_3 = tf.expand_dims(preprocess_ops.clip_or_pad_to_fixed_size(boxes_3, num_instances, 2), axis=0)
+  boxes_4 = tf.expand_dims(preprocess_ops.clip_or_pad_to_fixed_size(boxes_4, num_instances, 2), axis=0)
 
-  classes_1 = preprocess_ops.clip_or_pad_to_fixed_size(
-      tf.expand_dims(classes_1, axis=0), num_instances, -1)
-  classes_2 = preprocess_ops.clip_or_pad_to_fixed_size(
-      tf.expand_dims(classes_2, axis=0), num_instances, -1)
-  classes_3 = preprocess_ops.clip_or_pad_to_fixed_size(
-      tf.expand_dims(classes_3, axis=0), num_instances, -1)
-  classes_4 = preprocess_ops.clip_or_pad_to_fixed_size(
-      tf.expand_dims(classes_4, axis=0), num_instances, -1)
+  classes_1 = tf.expand_dims(preprocess_ops.clip_or_pad_to_fixed_size(classes_1, num_instances, -1), axis=0)
+  classes_2 = tf.expand_dims(preprocess_ops.clip_or_pad_to_fixed_size(classes_2, num_instances, -1), axis=0)
+  classes_3 = tf.expand_dims(preprocess_ops.clip_or_pad_to_fixed_size(classes_3, num_instances, -1), axis=0)
+  classes_4 = tf.expand_dims(preprocess_ops.clip_or_pad_to_fixed_size(classes_4, num_instances, -1), axis=0)
 
   cropped_full = tf.concat(
       [cropped_image_1, cropped_image_2, cropped_image_3, cropped_image_4],
