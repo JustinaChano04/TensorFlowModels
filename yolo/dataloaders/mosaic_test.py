@@ -24,30 +24,29 @@ def preprocess(point):
   return image, label
 
 
-ds = tfds.load('coco/2017', split='train')
+ds = tfds.load('voc', split='train')
 ds = ds.map(preprocess)
-ds = ds.batch(4)
+ds = ds.batch(32)
 drawer = utils.DrawBoxes(labels=coco.get_coco_names(), thickness=1)
 ds = ds.shuffle(50)
 i = 0
 for images, label in ds:
-  image, boxes, classes = po.mosaic_four(images, label['bbox'],
+  image, boxes, classes = po.mosaic(images, label['bbox'],
                                          label['classes'])
   sample = {
-      'bbox': tf.expand_dims(boxes, axis=0),
-      'classes': tf.expand_dims(classes, axis=0)
+      'bbox': boxes,
+      'classes':classes
   }
 
   print(tf.shape(image))
   print(tf.shape(boxes))
   print(tf.shape(classes))
 
-  image = drawer(tf.expand_dims(image, axis=0), sample)
+  image = drawer(image, sample)
 
-  for i in range(4):
-    plt.imshow(image[0, i])
+  for i in range(32):
+    plt.imshow(image[i])
     plt.show()
-  print(f'saved image{i}')
   i += 1
   if i == 10:
     break

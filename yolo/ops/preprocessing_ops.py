@@ -827,10 +827,6 @@ def mosaic_four(images, boxes, classes):
   cropped_image_4, boxes_4, classes_4 = random_crop_contain_center(
       full_image[0], full_box[0], full_class[0], 0.7)
 
-  print(tf.shape(cropped_image_1))
-  print(tf.shape(preprocess_ops.clip_or_pad_to_fixed_size(boxes_1, 200, 2)))
-  print(tf.shape(preprocess_ops.clip_or_pad_to_fixed_size(classes_1, 200, -1)))
-
   cropped_image_1 = tf.expand_dims(cropped_image_1, axis=0)
   cropped_image_2 = tf.expand_dims(cropped_image_2, axis=0)
   cropped_image_3 = tf.expand_dims(cropped_image_3, axis=0)
@@ -855,3 +851,34 @@ def mosaic_four(images, boxes, classes):
                            axis=0)
   boxes_full = tf.concat([boxes_1, boxes_2, boxes_3, boxes_4], axis=0)
   return cropped_full, boxes_full, classes_full
+
+@tf.function
+def mosaic_map(elems):
+  return tf.map_fn(lambda x: mosaic_four(x[0], x[1], x[2]), elems, parallel_iterations=3)
+def mosaic(images, boxes, classes):
+  image_shape = tf.shape(images)
+  box_shape = tf.shape(boxes)
+  class_shape = tf.shape(classes)
+  batch_size = image_shape[0]
+  new_batch_size = batch_size // 4
+  images = tf.reshape(images, [new_batch_size, 4, image_shape[-3], image_shape[-2], -1])
+  boxes = tf.reshape(boxes, [new_batch_size, 4, -1, 4])
+  classes = tf.reshape(classes, [new_batch_size, 4, -1])
+  image_arr =  tf.TensorArray(tf.float32, size = 0, dynamic_size = True)
+  box_arr =  tf.TensorArray(tf.float32, size = 0, dynamic_size = True)
+  class_arr =  tf.TensorArray(tf.float32, size = 0, dynamic_size = True)
+
+  for i in range(new_batch_size):
+    mimage, mbox, mclass = mosaic_four(images[i], boxes[i], classes[i])
+    image_arr = image_arr.write(i, mimage)
+    box_arr =  box_arr.write(i, mbox)
+    class_arr = class_arr.write(i, mclass)
+  images = image_arr.stack()
+  boxes = box_arr.stack()
+  classes = class_arr.stack()
+
+  new_image_shape = tf.shape(images)
+  images = tf.reshape(images, [batch_size, new_image_shape[-3], new_image_shape[-2], -1])
+  boxes = tf.reshape(boxes, [batch_size, -1, 4])
+  classes = tf.reshape(classes, [batch_size, -1])
+  return images, boxes, classes
