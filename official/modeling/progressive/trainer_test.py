@@ -26,7 +26,7 @@ from official.core import config_definitions as cfg
 from official.modeling import optimization
 from official.modeling.progressive import policies
 from official.modeling.progressive import trainer as trainer_lib
-from official.nlp.configs import bert
+#from official.nlp.configs import bert
 from official.utils.testing import mock_task
 
 
@@ -42,7 +42,7 @@ def all_strategy_combinations():
 def get_exp_config():
   return cfg.ExperimentConfig(
       task=cfg.TaskConfig(
-          model=bert.PretrainerConfig()),
+          model=None,
       trainer=trainer_lib.ProgressiveTrainerConfig(
           export_checkpoint=True,
           export_checkpoint_interval=1,
@@ -216,7 +216,7 @@ class TrainerWithMaskedLMTaskTest(tf.test.TestCase, parameterized.TestCase):
   def test_configure_optimizer(self, mixed_precision_dtype, loss_scale):
     config = cfg.ExperimentConfig(
         task=cfg.TaskConfig(
-            model=bert.PretrainerConfig()),
+            model=None,
         runtime=cfg.RuntimeConfig(
             mixed_precision_dtype=mixed_precision_dtype, loss_scale=loss_scale),
         trainer=trainer_lib.ProgressiveTrainerConfig(
