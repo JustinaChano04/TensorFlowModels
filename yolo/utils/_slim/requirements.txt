@@ -1,0 +1,5 @@
+-r ../../requirements.txt
+keras-flops==0.1.2
+kerassurgeon==0.2.0
+PyYAML==5.3.1
+disjoint_set==0.6.3
