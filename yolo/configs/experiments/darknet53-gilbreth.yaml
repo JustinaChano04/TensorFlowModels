@@ -1,7 +1,7 @@
 runtime:
   distribution_strategy: 'multi_worker_mirrored'
   mixed_precision_dtype: 'float16'
-  loss_scale: "dynamic"
+  #loss_scale: "dynamic"
   num_gpus: 6
 task:
   model:

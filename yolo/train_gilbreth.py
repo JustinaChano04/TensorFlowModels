@@ -82,11 +82,11 @@ def main(_):
     # can have significant impact on model speeds by utilizing float16 in case
     # of GPUs, and bfloat16 in the case of TPUs. loss_scale takes effect only
     # when dtype is float16
-    if params.runtime.mixed_precision_dtype:
-        performance.set_mixed_precision_policy(
-            params.runtime.mixed_precision_dtype,
-            params.runtime.loss_scale
-        )
+    # if params.runtime.mixed_precision_dtype:
+    #     performance.set_mixed_precision_policy(
+    #         params.runtime.mixed_precision_dtype,
+    #         params.runtime.loss_scale
+    #     )
 
     with distribution_strategy.scope():
         task = task_factory.get_task(params.task, logging_dir=model_dir)
