@@ -21,9 +21,7 @@ from official.modeling.hyperparams import base_config
 
 @dataclasses.dataclass
 class BaseOptimizerConfig(base_config.Config):
-  """Base optimizer config.
-
-  Attributes:
+  """Base optimizer config.  Attributes:
     clipnorm: float >= 0 or None. If not None, Gradients will be clipped when
       their L2 norm exceeds this value.
     clipvalue: float >= 0 or None. If not None, Gradients will be clipped when
@@ -31,9 +29,7 @@ class BaseOptimizerConfig(base_config.Config):
     global_clipnorm: float >= 0 or None. If not None, gradient of all weights is
         clipped so that their global norm is no higher than this value
   """
-  clipnorm: Optional[float] = None
-  clipvalue: Optional[float] = None
-  global_clipnorm: Optional[float] = None
+  name: Optional[str] = None
 
 
 @dataclasses.dataclass
