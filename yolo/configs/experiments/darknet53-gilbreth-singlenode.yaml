@@ -21,6 +21,7 @@ task:
   train_data:
     tfds_name: imagenet2012
     tfds_split: train
+    tfds_data_dir: /depot/davisjam/data/tensorflow_datasets/
     #input_path: 'imagenet-2012-tfrecord/train*'
     is_training: true
     global_batch_size: 256
@@ -30,6 +31,7 @@ task:
   validation_data:
     tfds_name: imagenet2012
     tfds_split: validation
+    tfds_data_dir: /depot/davisjam/data/tensorflow_datasets/
     #input_path: 'imagenet-2012-tfrecord/valid*'
     is_training: true
     global_batch_size: 256
